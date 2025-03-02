@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
@@ -12,6 +13,7 @@ namespace PasswordCrackerServer
 {
     public static class NetworkSerializer
     {
+        private const int MAX_TRIES = 200;
         public static byte[] SerializeWordBytesToNetwork(IList<byte[]> wordBytes)
         {
             if (wordBytes.Count == 0)
@@ -95,21 +97,11 @@ namespace PasswordCrackerServer
 
             return result;
         }
-        public static IDictionary<SHA1Hash, string> DeserializeCrackedPasswordsFromNetwork(Stream stream)
+        public static IDictionary<SHA1Hash, string> DeserializeCrackedPasswordsFromNetwork(NetworkStream stream)
         {
             Dictionary<SHA1Hash, string> result = new Dictionary<SHA1Hash, string>();
             // read data length from the input
-            byte[] dataLength = new byte[4];
-            stream.Read(dataLength);
-            // reverse array if little endian, before conversion to int
-            if (BitConverter.IsLittleEndian)
-                Array.Reverse(dataLength);
-            byte[] data = new byte[BitConverter.ToInt32(dataLength)];
-            int bytesRead = stream.Read(data);
-            if (bytesRead != data.Length)
-            {
-                throw new InvalidDataException($"Expected {data.Length} bytes of data, but only {bytesRead} could be read");
-            }
+            byte[] data = TryReadData(stream);
             int i = 0;
             int stringStart = 0;
             while (i < data.Length)
@@ -146,6 +138,63 @@ namespace PasswordCrackerServer
             }
 
             return result;
+        }
+        private static int TryReadDataLength(NetworkStream stream)
+        {
+            byte[] dataLength = new byte[4];
+            int bytesRead = 0;
+            int tries = 0;
+            while (bytesRead != dataLength.Length)
+            {
+                if (stream.DataAvailable)
+                {
+                    // read data length from the input              
+                    bytesRead += stream.Read(dataLength, bytesRead, dataLength.Length - bytesRead);
+                }
+                else
+                {
+                    tries++;
+                    Thread.Sleep(10);
+                }
+                {
+                    throw new TimeoutException($"Timed out trying to read data length header of {dataLength.Length} bytes, but only got {bytesRead} after {tries} tries.");
+                }
+            }
+            // reverse array if little endian, before conversion to int
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(dataLength);
+            return BitConverter.ToInt32(dataLength);
+        }
+        private static byte[] TryReadData(NetworkStream stream)
+        {
+            int dataLength = TryReadDataLength(stream);
+            byte[] data = TryReadPayload(stream, dataLength);
+            return data;
+
+        }
+        private static byte[] TryReadPayload(NetworkStream stream, int dataLength)
+        {
+            byte[] data = new byte[dataLength];
+            int bytesRead = 0;
+            int tries = 0;
+            while (bytesRead != data.Length)
+            {
+                if (stream.DataAvailable)
+                {
+                    bytesRead += stream.Read(data, bytesRead, data.Length - bytesRead);
+                }
+                else
+                {
+                    tries++;
+                    Thread.Sleep(10);
+                }
+                if (tries > MAX_TRIES)
+                {
+                    throw new TimeoutException($"Timed out trying to read {data.Length} bytes of data, but only got {bytesRead} after {tries} tries.");
+                }
+
+            }
+            return data;
         }
     }
 }
