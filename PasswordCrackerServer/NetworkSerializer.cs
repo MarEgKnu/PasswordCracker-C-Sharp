@@ -156,6 +156,7 @@ namespace PasswordCrackerServer
                     tries++;
                     Thread.Sleep(10);
                 }
+                if(tries > MAX_TRIES)
                 {
                     throw new TimeoutException($"Timed out trying to read data length header of {dataLength.Length} bytes, but only got {bytesRead} after {tries} tries.");
                 }
