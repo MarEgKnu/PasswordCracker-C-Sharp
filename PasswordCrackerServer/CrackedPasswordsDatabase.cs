@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PasswordCrackerServer.Models;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,9 @@ namespace PasswordCrackerServer
 
         }
         public IDictionary<SHA1Hash, string> CrackedPasswords {  get; set; } = new ConcurrentDictionary<SHA1Hash, string>();
+        public HashSet<LoginIdentifier> CrackedUsers { get; set; } = new HashSet<LoginIdentifier>();
 
-        public void Add(SHA1Hash hash, string plainText)
+        public void AddOrUpdatePassword(SHA1Hash hash, string plainText)
         {
             CrackedPasswords[hash] = plainText;
         }
@@ -24,8 +26,20 @@ namespace PasswordCrackerServer
         {
             foreach(var kvp in input)
             {
-                Add(kvp.Key, kvp.Value);
+                AddOrUpdatePassword(kvp.Key, kvp.Value);
             }
+        }
+        public bool ContainsPassword(SHA1Hash hash)
+        {
+            return CrackedPasswords.ContainsKey(hash);
+        }
+        public bool AddUser(LoginIdentifier login)
+        {
+            return CrackedUsers.Add(login);
+        }
+        public bool ContainsUser(LoginIdentifier login)
+        {
+            return CrackedUsers.Contains(login);
         }
     }
 }

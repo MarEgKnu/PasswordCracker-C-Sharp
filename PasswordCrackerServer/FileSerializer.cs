@@ -49,16 +49,14 @@ namespace PasswordCrackerServer
             }
             return result;
         }
-        public static void WriteCrackedPasswordToFile(string filePath, SHA1Hash hash, string plainTextPs, List<LoginIdentifier> loginIdentifiers)
+        public static void WriteCrackedPasswordToFile(string filePath, SHA1Hash hash, string plainTextPs, LoginIdentifier loginIdentifier)
         {
             using (FileStream file = File.Open(filePath, FileMode.Append))
             using (StreamWriter writer = new StreamWriter(file, Encoding.UTF8))
             {
-                foreach (LoginIdentifier identifier in loginIdentifiers)
-                {
-                    string result = string.Concat(identifier.Username, ";", plainTextPs, ";" , Convert.ToHexString(hash.Hash));
-                    writer.WriteLine(result);
-                }
+                string result = string.Concat(loginIdentifier.Username, ";", plainTextPs, ";", Convert.ToHexString(hash.Hash));
+                writer.WriteLine(result);
+                                  
             }                    
         }
     }

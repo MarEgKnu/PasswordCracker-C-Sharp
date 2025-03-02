@@ -80,23 +80,37 @@ namespace PasswordCrackerServer
                             case ServerConnectionStateFlag.SendCrackedPasswords:
                                 // receive passwords and accompanying usernames cracked by the slave
                                 IDictionary<SHA1Hash, string> crackedPasswords = NetworkSerializer.DeserializeCrackedPasswordsFromNetwork(stream);
-                                crackedPasswordsDatabase.AddRange(crackedPasswords);
-                                foreach(var kvp in crackedPasswords)
+                                ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Received {crackedPasswords.Count} cracked passwords from {incomingClient.Client.RemoteEndPoint}");
+                                foreach (var kvp  in crackedPasswords)
                                 {
                                     lock(_writeCrackedPsLock)
                                     {
-                                        if (loginInfoDatabase.GetAll().TryGetValue(kvp.Key, out List<LoginIdentifier> login))
+                                        
+                                        crackedPasswordsDatabase.AddOrUpdatePassword(kvp.Key, kvp.Value);
+                                        if(loginInfoDatabase.GetAll().TryGetValue(kvp.Key, out List<LoginIdentifier> login))
                                         {
-                                            FileSerializer.WriteCrackedPasswordToFile("./crackedpasswords.txt", kvp.Key, kvp.Value, login);
+                                            foreach (var userID in login)
+                                            {
+                                                if (!crackedPasswordsDatabase.ContainsUser(userID))
+                                                {
+                                                    FileSerializer.WriteCrackedPasswordToFile("./crackedpasswords.txt", kvp.Key, kvp.Value, userID);
+                                                    crackedPasswordsDatabase.AddUser(userID);
+                                                }
+                                                else
+                                                {
+                                                    ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Skipping writing user idenfitier {userID} as it already exists in the database");
+                                                }
+                                                    
+                                            }
+                                                
                                         }
                                         else
                                         {
                                             ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Cracked password {kvp.Value} could not be mapped to any known hashes on the server, is the client using the same reference hashes?");
                                         }
-                                    }                                    
+                                    }
+                                    
                                 }
-                                ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Received {crackedPasswords.Count} cracked passwords from {incomingClient.Client.RemoteEndPoint}");
-
 
                                 break;
                             case ServerConnectionStateFlag.RequestHashes:

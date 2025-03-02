@@ -16,11 +16,20 @@ namespace PasswordCrackerServer.Models
 
         public override bool Equals(object? obj)
         {
-            return Username.Equals(obj);
+            if(obj is LoginIdentifier login)
+            {
+                return String.Equals(Username, login.Username);
+            }
+            return false;
+            
         }
         public override int GetHashCode()
         {
             return Username.GetHashCode();
+        }
+        public override string ToString()
+        {
+            return Username;
         }
     }
 }
