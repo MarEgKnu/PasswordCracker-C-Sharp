@@ -68,7 +68,7 @@ namespace PasswordCrackerClient
             {
                 for (int i = 0; i < 10; i++)
                 {
-                    CheckMultipleVariations(string.Concat(word, i), skips | SkipWordVariations.kipAddDigitsBeginning);
+                    CheckMultipleVariations(string.Concat(word, i), skips | SkipWordVariations.SkipAddDigitsBeginning);
                 }
                 CheckMultipleVariations(string.Concat("1", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
                 CheckMultipleVariations(string.Concat("12", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
