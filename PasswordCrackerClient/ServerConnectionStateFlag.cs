@@ -8,6 +8,7 @@ namespace PasswordCrackerClient
 {
     enum ServerConnectionStateFlag
     {
+        Disconnected = -1,
         RequestTask = 1,
         SendCrackedPasswords = 2,
         RequestHashes = 3,

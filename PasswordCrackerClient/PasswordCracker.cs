@@ -20,6 +20,10 @@ namespace PasswordCrackerClient
         public IDictionary<SHA1Hash, string> ProcessWords(IEnumerable<string> words, int noOfThreads)
         {
             result.Clear();
+            //foreach (var word in words)
+            //{
+            //    CheckMultipleVariations(word);
+            //}
             ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = noOfThreads };
             Parallel.ForEach(words, parallelOptions, word =>
             {
@@ -50,11 +54,19 @@ namespace PasswordCrackerClient
             }
             if(!skips.HasFlag(SkipWordVariations.SkipAddDigitsEnd))
             {
-                CheckNumberedVariantsFront(word);
+                CheckMultipleVariations(string.Concat(word, "1"), skips | SkipWordVariations.SkipAddDigitsEnd);
+                CheckMultipleVariations(string.Concat(word, "12"), skips | SkipWordVariations.SkipAddDigitsEnd);
+                CheckMultipleVariations(string.Concat(word, "123"), skips | SkipWordVariations.SkipAddDigitsEnd);
+                CheckMultipleVariations(string.Concat(word, "1234"), skips | SkipWordVariations.SkipAddDigitsEnd);
+                //CheckNumberedVariantsFront(word);
             }    
             if(!skips.HasFlag(SkipWordVariations.SkipAddDigitsBeginning))
             {
-                CheckNumberedVariantsBack(word);
+                CheckMultipleVariations(string.Concat("1", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
+                CheckMultipleVariations(string.Concat("12", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
+                CheckMultipleVariations(string.Concat("123", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
+                CheckMultipleVariations(string.Concat("1234", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
+                //CheckNumberedVariantsBack(word);
             }
             if(!skips.HasFlag(SkipWordVariations.SkipCapitalizeStartLetters))
             {
@@ -109,10 +121,13 @@ namespace PasswordCrackerClient
         private void CheckSingleVariation(string word)
         {
             SHA1Hash sha1 = new SHA1Hash(SHA1.HashData(Encoding.UTF8.GetBytes(word)));
-            if (Hashes.Contains(sha1))
+            lock(result)
             {
-                result[sha1] = word;
-            }
+                if (Hashes.Contains(sha1))
+                {
+                    result[sha1] = word;
+                }
+            }          
         }
     }
 }

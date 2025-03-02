@@ -31,7 +31,7 @@ namespace PasswordCrackerClient
                 cracker = new PasswordCracker(hashes);
                 while(true)
                 {
-                    List<string> words = GetWordsFromServer(stream);
+                    List<string> words = GetWordsFromServer(stream, client);
                     var passwords = cracker.ProcessWords(words, _theadsToUse);
                     SendCrackedPasswordsToServer(stream,passwords);
 
@@ -59,7 +59,7 @@ namespace PasswordCrackerClient
                 Thread.Sleep(150);
             }
         }
-        private List<string> GetWordsFromServer(NetworkStream stream)
+        private List<string> GetWordsFromServer(NetworkStream stream, TcpClient client)
         {
             while (true)
             {
@@ -72,8 +72,8 @@ namespace PasswordCrackerClient
                     case ClientConnectionStateFlag.ReceivingWords:
                         return NetworkSerializer.DeserializeWordsFromNetwork(stream);
                     case ClientConnectionStateFlag.NoTasksAvailable:
-                        // wait an additional second
-                        Thread.Sleep(1000);
+                        client.Close();
+                        Environment.Exit(0);
                         break;
                     default:
                         // clear buffer

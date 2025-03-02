@@ -52,83 +52,88 @@ namespace PasswordCrackerServer
                 byte[] data = null; // the buffer to use to store bytes before they are sent to the networkstream
                 while(!_stop) 
                 {
-                    if(stream.DataAvailable)
+                    ServerConnectionStateFlag stateFlag;
+                    try
                     {
-                        ServerConnectionStateFlag stateFlag = (ServerConnectionStateFlag)stream.ReadByte();
-                        switch (stateFlag)
-                        {
-                            case ServerConnectionStateFlag.RequestTask:
-                                ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Task requested from Endpoint {incomingClient.Client.RemoteEndPoint}");
-                                // send words to be hashed and compared to see if it matches one of the existing hashes
-                                IList<byte[]> allWords = wordDatabase.GetAllWordBytes();
-                                // lock the checking and assignment of _wordCount, to synchronize all connections
-                                lock(_wordCountLock)
-                                {
-                                    if(_wordCount >= allWords.Count)
-                                    {
-                                        ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, "All words has been processed, refusing all incoming requests for additional tasks");
-                                        break;
-                                    }
-                                    int numOfWordsToProcess = Math.Min(allWords.Count - _wordCount, _wordsPerTask);
-                                    ArraySegment<byte[]> wordSlice = new ArraySegment<byte[]>(allWords.ToArray(), _wordCount, numOfWordsToProcess);
-                                    data = NetworkSerializer.SerializeWordBytesToNetwork(wordSlice);
-                                    _wordCount = _wordCount + _wordsPerTask;
-                                    ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Sending {numOfWordsToProcess} words to {incomingClient.Client.RemoteEndPoint} for processing");
-                                }
-                                stream.Write(data);            
-                                break;
-                            case ServerConnectionStateFlag.SendCrackedPasswords:
-                                // receive passwords and accompanying usernames cracked by the slave
-                                IDictionary<SHA1Hash, string> crackedPasswords = NetworkSerializer.DeserializeCrackedPasswordsFromNetwork(stream);
-                                ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Received {crackedPasswords.Count} cracked passwords from {incomingClient.Client.RemoteEndPoint}");
-                                foreach (var kvp  in crackedPasswords)
-                                {
-                                    lock(_writeCrackedPsLock)
-                                    {
-                                        
-                                        crackedPasswordsDatabase.AddOrUpdatePassword(kvp.Key, kvp.Value);
-                                        if(loginInfoDatabase.GetAll().TryGetValue(kvp.Key, out List<LoginIdentifier> login))
-                                        {
-                                            foreach (var userID in login)
-                                            {
-                                                if (!crackedPasswordsDatabase.ContainsUser(userID))
-                                                {
-                                                    FileSerializer.WriteCrackedPasswordToFile("./crackedpasswords.txt", kvp.Key, kvp.Value, userID);
-                                                    crackedPasswordsDatabase.AddUser(userID);
-                                                }
-                                                else
-                                                {
-                                                    ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Skipping writing user idenfitier {userID} as it already exists in the database");
-                                                }
-                                                    
-                                            }
-                                                
-                                        }
-                                        else
-                                        {
-                                            ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Cracked password {kvp.Value} could not be mapped to any known hashes on the server, is the client using the same reference hashes?");
-                                        }
-                                    }
-                                    
-                                }
-
-                                break;
-                            case ServerConnectionStateFlag.RequestHashes:
-                                // send the hashes to be compared against
-                                var hashes = loginInfoDatabase.GetAll().Keys.ToArray();
-                                data = NetworkSerializer.SerializeHashesInfoToNetwork(hashes);
-                                stream.Write(data);
-                                ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Sent {hashes.Length} hashes to {incomingClient.Client.RemoteEndPoint} for comparison");
-                                break;
-                            default:
-                                ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Invalid data detected from {incomingClient.Client.RemoteEndPoint}, clearing buffer.");
-                                ClearBuffer(stream);
-                                break;
-                        }
+                        stateFlag = (ServerConnectionStateFlag)stream.ReadByte();
                     }
-                    else
+                    catch (SocketException s)
                     {
-                        Thread.Sleep(100);
+                        stateFlag = ServerConnectionStateFlag.Disconnected;
+                    }
+                    switch (stateFlag)
+                    {
+                        case ServerConnectionStateFlag.Disconnected:
+                            incomingClient.Close();
+                            return;
+                        case ServerConnectionStateFlag.RequestTask:
+                            ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Task requested from Endpoint {incomingClient.Client.RemoteEndPoint}");
+                            // send words to be hashed and compared to see if it matches one of the existing hashes
+                            IList<byte[]> allWords = wordDatabase.GetAllWordBytes();
+                            // lock the checking and assignment of _wordCount, to synchronize all connections
+                            lock(_wordCountLock)
+                            {
+                                if(_wordCount >= allWords.Count)
+                                {
+                                    ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, "All words has been processed, refusing all incoming requests for additional tasks");
+                                    stream.WriteByte((byte)ClientConnectionStateFlag.NoTasksAvailable);
+                                    break;
+                                }
+                                int numOfWordsToProcess = Math.Min(allWords.Count - _wordCount, _wordsPerTask);
+                                ArraySegment<byte[]> wordSlice = new ArraySegment<byte[]>(allWords.ToArray(), _wordCount, numOfWordsToProcess);
+                                data = NetworkSerializer.SerializeWordBytesToNetwork(wordSlice);
+                                _wordCount = _wordCount + _wordsPerTask;
+                                ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Sending {numOfWordsToProcess} words to {incomingClient.Client.RemoteEndPoint} for processing");
+                            }
+                            stream.Write(data);            
+                            break;
+                        case ServerConnectionStateFlag.SendCrackedPasswords:
+                            // receive passwords and accompanying usernames cracked by the slave
+                            IDictionary<SHA1Hash, string> crackedPasswords = NetworkSerializer.DeserializeCrackedPasswordsFromNetwork(stream);
+                            ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Received {crackedPasswords.Count} cracked passwords from {incomingClient.Client.RemoteEndPoint}");
+                            foreach (var kvp  in crackedPasswords)
+                            {
+                                lock(_writeCrackedPsLock)
+                                {
+                                        
+                                    crackedPasswordsDatabase.AddOrUpdatePassword(kvp.Key, kvp.Value);
+                                    if(loginInfoDatabase.GetAll().TryGetValue(kvp.Key, out List<LoginIdentifier> login))
+                                    {
+                                        foreach (var userID in login)
+                                        {
+                                            if (!crackedPasswordsDatabase.ContainsUser(userID))
+                                            {
+                                                FileSerializer.WriteCrackedPasswordToFile("./crackedpasswords.txt", kvp.Key, kvp.Value, userID);
+                                                crackedPasswordsDatabase.AddUser(userID);
+                                            }
+                                            else
+                                            {
+                                                ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Skipping writing user idenfitier {userID} as it already exists in the database");
+                                            }
+                                                    
+                                        }
+                                                
+                                    }
+                                    else
+                                    {
+                                        ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Cracked password {kvp.Value} could not be mapped to any known hashes on the server, is the client using the same reference hashes?");
+                                    }
+                                }
+                                    
+                            }
+
+                            break;
+                        case ServerConnectionStateFlag.RequestHashes:
+                            // send the hashes to be compared against
+                            var hashes = loginInfoDatabase.GetAll().Keys.ToArray();
+                            data = NetworkSerializer.SerializeHashesInfoToNetwork(hashes);
+                            stream.Write(data);
+                            ServerLogger.Instance.TraceEvent(TraceEventType.Information, _port, $"Sent {hashes.Length} hashes to {incomingClient.Client.RemoteEndPoint} for comparison");
+                            break;
+                        default:
+                            ServerLogger.Instance.TraceEvent(TraceEventType.Warning, _port, $"Invalid data detected from {incomingClient.Client.RemoteEndPoint}, clearing buffer.");
+                            ClearBuffer(stream);
+                            break;
                     }
                    
                 }
