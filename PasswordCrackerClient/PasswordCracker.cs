@@ -54,6 +54,10 @@ namespace PasswordCrackerClient
             }
             if(!skips.HasFlag(SkipWordVariations.SkipAddDigitsEnd))
             {
+                for(int i = 0; i < 10;i++)
+                {
+                    CheckMultipleVariations(string.Concat(word, i), skips | SkipWordVariations.SkipAddDigitsEnd);
+                }
                 CheckMultipleVariations(string.Concat(word, "1"), skips | SkipWordVariations.SkipAddDigitsEnd);
                 CheckMultipleVariations(string.Concat(word, "12"), skips | SkipWordVariations.SkipAddDigitsEnd);
                 CheckMultipleVariations(string.Concat(word, "123"), skips | SkipWordVariations.SkipAddDigitsEnd);
@@ -62,6 +66,10 @@ namespace PasswordCrackerClient
             }    
             if(!skips.HasFlag(SkipWordVariations.SkipAddDigitsBeginning))
             {
+                for (int i = 0; i < 10; i++)
+                {
+                    CheckMultipleVariations(string.Concat(word, i), skips | SkipWordVariations.kipAddDigitsBeginning);
+                }
                 CheckMultipleVariations(string.Concat("1", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
                 CheckMultipleVariations(string.Concat("12", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
                 CheckMultipleVariations(string.Concat("123", word), skips | SkipWordVariations.SkipAddDigitsBeginning);
