@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,10 +11,10 @@ namespace PasswordCrackerClient
 {
     public class PasswordCracker
     {
-        public HashSet<SHA1Hash> Hashes { get; set; }
+        public ImmutableHashSet<SHA1Hash> Hashes { get; set; }
         public PasswordCracker(HashSet<SHA1Hash> hashes)
         {
-            Hashes = hashes;
+            Hashes = ImmutableHashSet.CreateRange(hashes);
             result = new Dictionary<SHA1Hash, string>();
         }
         private Dictionary<SHA1Hash, string> result;
@@ -41,11 +42,11 @@ namespace PasswordCrackerClient
             } 
             if(!skips.HasFlag(SkipWordVariations.SkipUpper))
             {
-                CheckMultipleVariations(word.ToUpper(), skips | SkipWordVariations.SkipUpper | SkipWordVariations.SkipLower);
+                CheckMultipleVariations(word.ToUpper(), skips | SkipWordVariations.SkipUpper | SkipWordVariations.SkipLower | SkipWordVariations.SkipCapitalizeStartLetters);
             }
             if(!skips.HasFlag(SkipWordVariations.SkipLower))
             {
-                CheckMultipleVariations(word.ToLower(), skips | SkipWordVariations.SkipUpper | SkipWordVariations.SkipLower);
+                CheckMultipleVariations(word.ToLower(), skips | SkipWordVariations.SkipUpper | SkipWordVariations.SkipLower | SkipWordVariations.SkipCapitalizeStartLetters);
             }
             if(!skips.HasFlag(SkipWordVariations.SkipReverse))
             {
@@ -54,7 +55,7 @@ namespace PasswordCrackerClient
             }
             if(!skips.HasFlag(SkipWordVariations.SkipAddDigitsEnd))
             {
-                for(int i = 0; i < 10;i++)
+                for(int i = 0; i < 5;i++)
                 {
                     CheckMultipleVariations(string.Concat(word, i), skips | SkipWordVariations.SkipAddDigitsEnd);
                 }
@@ -66,7 +67,7 @@ namespace PasswordCrackerClient
             }    
             if(!skips.HasFlag(SkipWordVariations.SkipAddDigitsBeginning))
             {
-                for (int i = 0; i < 10; i++)
+                for (int i = 0; i < 5; i++)
                 {
                     CheckMultipleVariations(string.Concat(word, i), skips | SkipWordVariations.SkipAddDigitsBeginning);
                 }
@@ -78,7 +79,7 @@ namespace PasswordCrackerClient
             }
             if(!skips.HasFlag(SkipWordVariations.SkipCapitalizeStartLetters))
             {
-                CheckMultipleVariations(word.CapitalizeLettersFromStart(3), skips | SkipWordVariations.SkipCapitalizeStartLetters);
+                CheckMultipleVariations(word.CapitalizeLettersFromStart(3), skips | SkipWordVariations.SkipCapitalizeStartLetters | SkipWordVariations.SkipUpper | SkipWordVariations.SkipLower);
             }
 
         }
