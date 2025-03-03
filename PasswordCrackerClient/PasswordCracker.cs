@@ -129,13 +129,15 @@ namespace PasswordCrackerClient
         private void CheckSingleVariation(string word)
         {
             SHA1Hash sha1 = new SHA1Hash(SHA1.HashData(Encoding.UTF8.GetBytes(word)));
-            lock(result)
+            
+            if (Hashes.Contains(sha1))
             {
-                if (Hashes.Contains(sha1))
+                lock (result) 
                 {
                     result[sha1] = word;
-                }
-            }          
+                }                 
+            }
+                    
         }
     }
 }
